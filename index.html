@@ -1,31 +1,222 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
-		<meta charset="utf-8" />
-		<meta
-			name="viewport"
-			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-		/>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-		<title>reveal.js</title>
+		<title>Extending the BPF Type Format to support more languages</title>
 
-		<link rel="stylesheet" href="dist/reset.css" />
-		<link rel="stylesheet" href="dist/reveal.css" />
-		<link rel="stylesheet" href="dist/theme/black.css" />
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/black.css">
 
 		<!-- Theme used for syntax highlighted code -->
-		<link rel="stylesheet" href="dist/plugin/highlight/monokai.css" />
+		<link rel="stylesheet" href="dist/plugin/highlight/monokai.css">
+		<style>
+			.reveal pre { font-size: 0.45em; }
+			.reveal pre.small { font-size: 0.38em; }
+		</style>
 	</head>
 	<body>
 		<div class="reveal">
 			<div class="slides">
-				<section>Slide 1</section>
-				<section>Slide 2</section>
+				<section>
+					<h2>Extending BTF<br>to support more languages</h2>
+					<br>
+					<br>
+					<br>
+					<table>
+						<tbody>
+							<tr>
+								<th>
+									<center>
+									<i>Alan Maguire, Arnaldo Carvalho de Melo</i>
+									<br>
+									<i>Linux Plumbers Conference 2026</i>
+									<br>
+									<b>eBPF Track</b>
+									<br>
+									</center>
+								</th>
+							</tr>
+						</tbody>
+					</table>
+				</section>
+				<section>
+					<h2>Why now?</h2>
+					<br>
+					<ul>
+						<li>Kernel modules can be built in Rust</li>
+						<li>BTF was designed around C</li>
+						<li>Time to assess non-C constructs</li>
+						<li>Rough suggestions to trigger discussion</li>
+					</ul>
+				</section>
+				<section>
+					<h2>C: simple</h2>
+					<br>
+					<pre><code data-trim>
+  struct point { int x; int y; };
+  enum color { RED, GREEN, BLUE };
+					</code></pre>
+					<ul>
+						<li>Struct &rarr; BTF_KIND_STRUCT</li>
+						<li>Enum &rarr; BTF_KIND_ENUM (plain integers)</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Rust: rich</h2>
+					<br>
+					<pre><code data-trim>
+  enum Option&lt;T&gt; { Some(T), None }
+  enum Result&lt;T, E&gt; { Ok(T), Err(E) }
+					</code></pre>
+					<ul>
+						<li>Enums with data: tagged unions</li>
+						<li>Discriminants, generics, zero-sized types</li>
+						<li>128-bit discriminant values</li>
+					</ul>
+				</section>
+				<section>
+					<h2>DWARF: C enum</h2>
+					<br>
+					<pre><code data-trim>
+  DW_TAG_enumeration_type "color"
+    DW_TAG_enumerator "RED" (0)
+    DW_TAG_enumerator "GREEN" (1)
+    DW_TAG_enumerator "BLUE" (2)
+					</code></pre>
+				</section>
+				<section>
+					<h2>DWARF: Rust enum</h2>
+					<br>
+					<pre class="small"><code data-trim>
+  DW_TAG_structure_type "Option&lt;i32&gt;"
+    DW_TAG_variant_part (DW_AT_discr -&gt; discriminant)
+      DW_TAG_variant "Some" (DW_AT_discr_value: 1)
+        DW_TAG_member "0" (i32)
+      DW_TAG_variant "None" (DW_AT_discr_value: 0)
+					</code></pre>
+					<ul>
+						<li>New tags for pahole: variant_part, variant, discr_value</li>
+						<li>Unused in C: no support until Rust came along</li>
+					</ul>
+				</section>
+				<section>
+					<h2>LLVM already encodes it</h2>
+					<br>
+					<pre class="small"><code data-trim>
+  [1] STRUCT 'MyEnum' size=12 vlen=1
+          '(anon)' type_id=3 bits_offset=0
+  [3] UNION '(anon)' size=12 vlen=3
+          '(anon)' type_id=2 bits_offset=0  &lt;- discriminant
+          'First' type_id=4 bits_offset=0
+          'Second' type_id=6 bits_offset=0
+					</code></pre>
+					<ul>
+						<li>STRUCT wrapper + single anonymous UNION</li>
+						<li>Discriminant as anonymous member + variants</li>
+						<li>pahole follows this shape</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Don't infer: DW_AT_discr</h2>
+					<br>
+					<ul>
+						<li>rustc layout explicitly unstable</li>
+						<li>DWARF 5, 5.7.10: DW_AT_discr points at the member</li>
+						<li>Real type, real location, real size</li>
+						<li>Synthesize name "__discriminant" (BTF needs names)</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Explicit vs niche</h2>
+					<br>
+					<ul>
+						<li><tt>Option&lt;u32&gt;</tt>: tag at 0, payload at 4 &rarr; emit it</li>
+						<li><tt>Option&lt;NonZero&lt;u32&gt;&gt;</tt>: tag IS the payload &rarr; emit nothing</li>
+						<li>Rule: emit only when it doesn't overlap the payload</li>
+						<li>Niche is the common kernel case (Result<(), Error>)</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Unions sit at zero</h2>
+					<br>
+					<ul>
+						<li>Non-zero discriminants can't live in the UNION</li>
+						<li>libbpf refuses, kernel verifier rejects at load</li>
+						<li>Real storage &rarr; outer STRUCT (overlap legal)</li>
+						<li>Payload itself &rarr; dropped</li>
+						<li>LLVM emits what the verifier rejects: upstream bug</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Pretty target</h2>
+					<br>
+					<pre class="small"><code data-trim>
+  struct Option&lt;u32&gt; {
+      u32 __discriminant;      /*  0  4 */
+      union {
+          struct None {};
+          struct Some { u32 __0; /*  4  4 */ };
+      };                       /*  4  4 */
+  };
+					</code></pre>
+				</section>
+				<section>
+					<h2>Zero-sized, dynamically-sized</h2>
+					<br>
+					<ul>
+						<li>ZSTs: byte_size 0, member type <tt>()</tt> rewrites to 4 bytes</li>
+						<li>STRUCT size=0 with a 4-byte member: BRAIN FART ALERT!</li>
+						<li>DSTs: str/[u8] tails, member bytes &gt; struct size</li>
+						<li>Fix: skip zero-size members, clamp padding math</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Non-C precedent: Go, 2023</h2>
+					<br>
+					<ul>
+						<li>Trace Summit Bilbao: uprobes + BPF on Go userspace</li>
+						<li>Go DWARF, calling convention, <tt>perf probe</tt> for Go</li>
+						<li>We've done non-C DWARF before</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open: the abstract's list</h2>
+					<br>
+					<ul>
+						<li>Slices / "fat pointers" with type and size</li>
+						<li>Generics (monomorphization explosion)</li>
+						<li>Interfaces (trait objects, vtables)</li>
+						<li>Lifetime tags</li>
+						<li>Rough ideas welcome: this is the discussion</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Ask to the room</h2>
+					<br>
+					<ul>
+						<li>Named __discriminant already usable in CO-RE relocations</li>
+						<li>discr_values per variant not representable in BTF today</li>
+						<li>New kind? DECL_TAG-like annotations on union members?</li>
+						<li>Verifier tracking the active variant: match at load time</li>
+					</ul>
+				</section>
+				<section>
+					<h2>THE END</h2>
+					<ul>
+						<li><a href=https://github.com/acmel/dwarves>https://github.com/acmel/dwarves</a></li>
+						<li>Test your Rust programs with pahole, file issues!</li>
+					</ul>
+				</section>
 			</div>
 		</div>
 
 		<script src="dist/reveal.js"></script>
+		<script src="dist/plugin/zoom.js"></script>
 		<script src="dist/plugin/notes.js"></script>
+		<script src="dist/plugin/search.js"></script>
 		<script src="dist/plugin/markdown.js"></script>
 		<script src="dist/plugin/highlight.js"></script>
 		<script>
@@ -36,7 +227,7 @@
 				hash: true,
 
 				// Learn about plugins: https://revealjs.com/plugins/
-				plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+				plugins: [ RevealZoom, RevealNotes, RevealSearch, RevealMarkdown, RevealHighlight ]
 			});
 		</script>
 	</body>
