@@ -194,6 +194,16 @@
 					</ul>
 				</section>
 				<section>
+					<h2>Compilers emit BTF too</h2>
+					<br>
+					<ul>
+						<li>GCC -gbtf (12+, default on BPF) + -mco-re</li>
+						<li>LLVM -gbtf + lld --btf-merge: pahole step optional, someday</li>
+						<li>gccrs: still out of tree</li>
+						<li>RANDSTRUCT: without the seed, layouts lie to every tool</li>
+					</ul>
+				</section>
+				<section>
 					<h2>Ask to the room</h2>
 					<br>
 					<ul>
