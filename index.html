@@ -190,7 +190,7 @@
 						<li>Generics (monomorphization explosion)</li>
 						<li>Interfaces (trait objects, vtables)</li>
 						<li>Lifetime tags</li>
-						<li>Rough ideas welcome: this is the discussion</li>
+						<li>See: <a href="https://fedorapeople.org/~acme/prez/lpc-2026-btf-languages/btf-for-rust-proposal.md">btf-for-rust-proposal.md</a></li>
 					</ul>
 				</section>
 				<section>
@@ -211,6 +211,33 @@
 						<li>discr_values per variant not representable in BTF today</li>
 						<li>New kind? DECL_TAG-like annotations on union members?</li>
 						<li>Verifier tracking the active variant: match at load time</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open Questions: VARIANT_PART Design</h2>
+					<br>
+					<ul>
+						<li>Implicit fields (data_ptr, length at fixed offsets) vs Explicit (vlen=N)?</li>
+						<li>Discriminant type: mandatory or optional for C-style enums?</li>
+						<li>Size field: include discriminant in total size?</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open Questions: Vtables &amp; Compatibility</h2>
+					<br>
+					<ul>
+						<li>Vtable method ordering: compiler consistency sufficient?</li>
+						<li>Backward compatibility: emit both old and new during transition?</li>
+						<li>Consumers ignore unknown kinds: sufficient for rollout?</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open Questions: 128-bit Discriminants</h2>
+					<br>
+					<ul>
+						<li>Current ENUM64 supports 64-bit</li>
+						<li>Go straight to 128-bit or incremental?</li>
+						<li>btf_enum128: 4 x 32-bit words sufficient?</li>
 					</ul>
 				</section>
 				<section>
