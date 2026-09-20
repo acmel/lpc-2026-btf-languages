@@ -241,6 +241,41 @@
 					</ul>
 				</section>
 				<section>
+					<h2>Function tracing in Rust modules</h2>
+					<br/>
+					<ul>
+						<li>Problem: ELF symbols, kallsyms for Rust module functions uses mangled Rust names</li>
+						<li>Example kallsyms entry for rust_print module:</li>
+					</ul>
+					<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">ffffffffc0fec430 t _RNvXs5_NtCs1DErgtJhccC_6kernel3fmtReNtB5_7Display3fmtCs7y3Drb9gYub_15rust_print_main	[rust_print]</code></pre>
+				</section>
+				<section>
+					<h2>Solution: decl tags for mangled names</h2>
+					<br/>
+					<ul>
+						<li>Have pahole use the DW_at_name, record the DW_at_linkage_name as a BTF decl tag:</li>
+					</ul>
+					<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">[145526] FUNC 'fmt&lt;str&gt;' type_id=145525 linkage=static
+[145527] DECL_TAG 'rust:linkage:_RNvXs5_NtCs1DErgtJhccC_6kernel3fmtReNtB5_7Display3fmtCs7y3Drb9gYub_15rust_print_main' type_id=145526 component_idx=-1</code></pre>
+				</section>
+				<section>
+					<h2>Using decl tags to trace</h2>
+					<br/>
+					<ul>
+						<li>Allows for tracing a function using a stable name</li>
+					</ul>
+					<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">SEC("fentry/fmt&lt;str&gt;")</code></pre>
+					<ul>
+						<li>Still supports runtime matching:
+							<ul>
+								<li>Find function via name</li>
+								<li>Use decl tag to identify attach point in kallsyms</li>
+							</ul>
+						</li>
+						<li>See <a href="https://github.com/alan-maguire/dwarves/tree/pahole-rust">here</a> for a PoC</li>
+					</ul>
+				</section>
+				<section>
 					<h2>THE END</h2>
 					<ul>
 						<li><a href=https://github.com/acmel/dwarves>https://github.com/acmel/dwarves</a></li>
