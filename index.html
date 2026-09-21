@@ -190,7 +190,17 @@
 						<li>Generics (monomorphization explosion)</li>
 						<li>Interfaces (trait objects, vtables)</li>
 						<li>Lifetime tags</li>
-						<li>Rough ideas welcome: this is the discussion</li>
+						<li>See: <a href="https://fedorapeople.org/~acme/prez/lpc-2026-btf-languages/btf-for-rust-proposal.md">btf-for-rust-proposal.md</a></li>
+					</ul>
+				</section>
+				<section>
+					<h2>Compilers emit BTF too</h2>
+					<br>
+					<ul>
+						<li>GCC -gbtf (12+, default on BPF) + -mco-re</li>
+						<li>LLVM -gbtf + lld --btf-merge: pahole step optional, someday</li>
+						<li>gccrs: still out of tree</li>
+						<li>RANDSTRUCT: without the seed, layouts lie to every tool</li>
 					</ul>
 				</section>
 				<section>
@@ -204,6 +214,33 @@
 					</ul>
 				</section>
 				<section>
+					<h2>Open Questions: VARIANT_PART Design</h2>
+					<br>
+					<ul>
+						<li>Implicit fields (data_ptr, length at fixed offsets) vs Explicit (vlen=N)?</li>
+						<li>Discriminant type: mandatory or optional for C-style enums?</li>
+						<li>Size field: include discriminant in total size?</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open Questions: Vtables &amp; Compatibility</h2>
+					<br>
+					<ul>
+						<li>Vtable method ordering: compiler consistency sufficient?</li>
+						<li>Backward compatibility: emit both old and new during transition?</li>
+						<li>Consumers ignore unknown kinds: sufficient for rollout?</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open Questions: 128-bit Discriminants</h2>
+					<br>
+					<ul>
+						<li>Current ENUM64 supports 64-bit</li>
+						<li>Go straight to 128-bit or incremental?</li>
+						<li>btf_enum128: 4 x 32-bit words sufficient?</li>
+					</ul>
+				</section>
+				<section>
 					<h2>Function tracing in Rust modules</h2>
 					<br/>
 					<ul>
@@ -213,20 +250,22 @@
 					<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">ffffffffc0fec430 t _RNvXs5_NtCs1DErgtJhccC_6kernel3fmtReNtB5_7Display3fmtCs7y3Drb9gYub_15rust_print_main	[rust_print]</code></pre>
 				</section>
 				<section>
-					<h2>Solution: decl tags for mangled names?</h2>
+					<h2>Solution: decl tags for mangled names</h2>
 					<br/>
 					<ul>
-						<li>Have pahole use the DW_at_name , record the DW_at_linkage_name as a BTF decl tag:</li>
+						<li>Have pahole use the DW_at_name, record the DW_at_linkage_name as a BTF decl tag:</li>
+					</ul>
 					<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">[145526] FUNC 'fmt&lt;str&gt;' type_id=145525 linkage=static
 [145527] DECL_TAG 'rust:linkage:_RNvXs5_NtCs1DErgtJhccC_6kernel3fmtReNtB5_7Display3fmtCs7y3Drb9gYub_15rust_print_main' type_id=145526 component_idx=-1</code></pre>
-					</ul>
 				</section>
 				<section>
 					<h2>Using decl tags to trace</h2>
 					<br/>
 					<ul>
 						<li>Allows for tracing a function using a stable name</li>
-						<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">SEC("fentry/fmt&lt;str&gt")</code></pre>
+					</ul>
+					<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">SEC("fentry/fmt&lt;str&gt;")</code></pre>
+					<ul>
 						<li>Still supports runtime matching:
 							<ul>
 								<li>Find function via name</li>
