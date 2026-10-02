@@ -81,6 +81,15 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					<aside class="notes">[PATCH bpf-next 00/14] bpf: Support programs compiled by rust-bpf, Alexei Starovoitov, 30 Sep 2026. Rust BPF programs keep all memory in arena and access it through plain numbers (no address spaces in Rust): ALU on pointers with CAP_PERFMON, loads/stores through a number treated as arena access with BPF_F_ARENA_SCALAR (x86 and arm64), libbpf keeping .data/.bss/.rodata in arena. Patches 5-10 are the BTF part, the one relevant here: type and function names that are not C identifiers, unnamed arguments of static functions, a DATASEC variable smaller than its type. With the series the kernel loads the BTF of the Rust scx_simple and scx_cosmos schedulers; the objects do not load yet, they need bpf_alloc() and friends, not in the series. No change for unprivileged programs.</aside>
 				</section>
 				<section>
+					<h2>Aya</h2>
+					<br/>
+					<ul>
+						<li><a href="https://archive.fosdem.org/2026/events/attachments/T7LDUJ-aya/slides/267117/aya-2026_dixkcsr.pdf">Aya developed bpf-linker which helps rustc generates BTF from LLVM DWARF</a></li>
+						<li>Uses existing BTF kinds</li>						<li><a href="https://lpc.events/event/20/contributions/2499/">BTF CO-RE support in progress</a></li>
+						<li>How far can we get using the same sort of approach for Rust-written kernel modules?</li>
+					</ul>
+				</section>
+				<section>
 					<h2>C: simple</h2>
 					<br>
 					<pre><code data-trim>
