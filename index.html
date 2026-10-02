@@ -53,6 +53,15 @@
 					</ul>
 				</section>
 				<section>
+					<h2>The pahole encoding gap</h2>
+					<br>
+					<ul>
+						<li>Currently pahole skips generating BTF for Rust modules</li>
+						<li>Want them to be first class citizens for tracing etc</li>
+						<li>Find common ground with other projects wrt BTF encoding</li>
+					</ul>
+				</section>
+				<section>
 					<h2>C: simple</h2>
 					<br>
 					<pre><code data-trim>
@@ -208,7 +217,7 @@
 					<h2>Compilers emit BTF too</h2>
 					<br>
 					<ul>
-						<li>GCC -gbtf (12+, default on BPF) + -mco-re</li>
+						<li>GCC -gbtf (12+, default on BPF) + -mco-re ; future BTF linking/dedup</li>
 						<li>LLVM -gbtf + lld --btf-merge: pahole step optional, someday</li>
 						<li>gccrs: still out of tree</li>
 						<li>RANDSTRUCT: without the seed, layouts lie to every tool</li>
