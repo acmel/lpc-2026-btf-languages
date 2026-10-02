@@ -56,6 +56,15 @@
 					</ul>
 				</section>
 				<section>
+					<h2>The pahole encoding gap</h2>
+					<br>
+					<ul>
+						<li>Currently pahole skips generating BTF for Rust modules</li>
+						<li>Want them to be first class citizens for tracing etc</li>
+						<li>Find common ground with other projects wrt BTF encoding</li>
+					</ul>
+        </section>
+        <section>
 					<h2>Also: BPF programs in Rust</h2>
 					<br>
 					<pre class="small"><code class="language-plaintext" data-trim>
@@ -202,6 +211,17 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					</ul>
 				</section>
 				<section>
+					<h2>Common need across languges - namespaces?</h2>
+					<br>
+					<ul>
+						<li>Namespacing is used extensively in Rust</li>
+						<li>C hierarchy is flat, most languages have deep scope/nesting relations</li>
+						<li>Can simulate with BTF tags, but it is wasteful; need one tag per tagged entity</li>
+						<li>A more structured BTF kind could represent parent-child relationships</li>
+						<li>Namespace as a whole could be tagged if needed</li>
+					</ul>
+				</section>
+				<section>
 					<h2>Open: the abstract's list</h2>
 					<br>
 					<ul>
@@ -216,7 +236,7 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					<h2>Compilers emit BTF too</h2>
 					<br>
 					<ul>
-						<li><a href="https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html">GCC -gbtf</a> (12+, default on BPF) + <a href="https://gcc.gnu.org/onlinedocs/gcc/eBPF-Options.html">-mco-re</a></li>
+            <li><a href="https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html">GCC -gbtf</a> (12+, default on BPF) + <a href="https://gcc.gnu.org/onlinedocs/gcc/eBPF-Options.html">-mco-re</a></li>
 						<li>LLVM -gbtf + lld --btf-merge: pahole step optional, someday</li>
 						<li><a href="https://rust-gcc.github.io/">gccrs</a>: still out of tree</li>
 						<li><a href="https://lwn.net/Articles/722293/">RANDSTRUCT</a>: without the seed, layouts lie to every tool</li>
