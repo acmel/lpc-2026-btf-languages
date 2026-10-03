@@ -109,11 +109,10 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					<ul>
 						<li>C: BTF &rarr; header &rarr; the same C, nearly lossless</li>
 						<li>BPF needs the internal layout, for the verifier</li>
-						<li>Rust via DWARF: language-neutral, so lossy</li>
-						<li>Knowing it came from Rust helps recover it</li>
-						<li>Needs a more expressive representation</li>
+						<li>Rust via DWARF: we see the layout, not the intent</li>
+						<li>Full circle back to Rust: limited</li>
 					</ul>
-					<aside class="notes">From Alan's draft. With C we are used to going from source description to BTF and back to the same language description, relatively losslessly. The BPF perspective is a description of the internal representation, enough for the verifier to judge program safety. With higher-level languages we rely on language-independent DWARF, so the process is lossier; preserving some circularity, e.g. knowing an entity was built in Rust, would help recover Rust-specific aspects.</aside>
+					<aside class="notes">From Alan's draft. With C we are used to going from source description to BTF and back to the same language description, relatively losslessly. The BPF perspective is a description of the internal representation, enough for the verifier to judge program safety. With higher-level languages we rely on language-independent DWARF, so the process is lossier. Alan, revising his draft: the earlier idea of recovering more Rust from BTF (full circle) is limited, since DWARF only shows the effects on layout, so that is all BTF can carry.</aside>
 				</section>
 				<section>
 					<h2>repr(Rust), repr(C) and CO-RE</h2>
@@ -121,11 +120,11 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					<ul>
 						<li>#[repr(Rust)]: rustc picks the layout and order</li>
 						<li>Two compiles may lay it out differently</li>
-						<li>DWARF shows the result, not the #[repr]</li>
-						<li>Familiar from kernel versions: CO-RE is vital</li>
+						<li>DWARF has the layout, never the #[repr]</li>
+						<li>So BTF cannot recover it: CO-RE is vital</li>
 						<li>Dump as #[repr(C)] + preserve_access_index</li>
 					</ul>
-					<aside class="notes">From Alan's draft. #[repr(Rust)] lets rustc choose layout including field order; #[repr(C)] gives C-compatible layout; #[repr(packed)] etc. DWARF reflects the choices made, but any two #[repr(Rust)] compiles may differ, like kernel versions do, so CO-RE matters. For bpftool btf dump of Rust module BTF to survive a recompile, the header would emit #[repr(C)] plus preserve_access_index: #[repr(Rust)] &rarr; BTF &rarr; #[repr(C)] + preserve_access_index. That also solves the #[repr] not making it into DWARF. This was proposed for Aya.</aside>
+					<aside class="notes">From Alan's draft. #[repr(Rust)] lets rustc choose layout including field order; #[repr(C)] gives C-compatible layout; #[repr(packed)] etc. DWARF reflects the choices made, but any two #[repr(Rust)] compiles may differ, like kernel versions do, so CO-RE matters. For bpftool btf dump of Rust module BTF to survive a recompile, the header would emit #[repr(C)] plus preserve_access_index: #[repr(Rust)] &rarr; BTF &rarr; #[repr(C)] + preserve_access_index. The #[repr] itself never makes it into DWARF, so BTF cannot recover it: we only see its effects on layout (Alan, correcting his draft). Emitting #[repr(C)] + preserve_access_index describes exactly what is known, the layout, and lets CO-RE absorb changes. This was proposed for Aya.</aside>
 				</section>
 				<section>
 					<h2>C: simple</h2>
