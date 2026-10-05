@@ -110,6 +110,8 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 						<li>C: BTF &rarr; header &rarr; the same C, nearly lossless</li>
 						<li>BPF needs the internal layout, for the verifier</li>
 						<li>Rust via DWARF: we see the layout, not the intent</li>
+						<li>You can't tell which layout is a guaranteed contract:</li>
+						<li>repr(C) vs repr(Rust)</li>
 						<li>Full circle back to Rust: limited</li>
 					</ul>
 					<aside class="notes">From Alan's draft. With C we are used to going from source description to BTF and back to the same language description, relatively losslessly. The BPF perspective is a description of the internal representation, enough for the verifier to judge program safety. With higher-level languages we rely on language-independent DWARF, so the process is lossier. Alan, revising his draft: the earlier idea of recovering more Rust from BTF (full circle) is limited, since DWARF only shows the effects on layout, so that is all BTF can carry.</aside>
@@ -204,27 +206,6 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					</ul>
 				</section>
 				<section>
-					<h2>Explicit vs niche</h2>
-					<br>
-					<ul>
-						<li><tt>Option&lt;u32&gt;</tt>: tag at 0, payload at 4 &rarr; emit it</li>
-						<li><tt>Option&lt;<a href="https://doc.rust-lang.org/std/num/struct.NonZero.html">NonZero</a>&lt;u32&gt;&gt;</tt>: tag IS the payload &rarr; emit nothing</li>
-						<li>Rule: emit only when it doesn't overlap the payload</li>
-						<li>Niche is the common kernel case (Result<(), Error>)</li>
-					</ul>
-				</section>
-				<section>
-					<h2>Unions sit at zero</h2>
-					<br>
-					<ul>
-						<li>Non-zero discriminants can't live in the UNION</li>
-						<li><a href="https://github.com/libbpf/libbpf">libbpf</a> refuses, kernel <a href="https://docs.kernel.org/bpf/verifier.html">verifier</a> rejects at load</li>
-						<li>Real storage &rarr; outer STRUCT (overlap legal)</li>
-						<li>Payload itself &rarr; dropped</li>
-						<li>LLVM emits what the verifier rejects: upstream bug</li>
-					</ul>
-				</section>
-				<section>
 					<h2>Pretty target</h2>
 					<br>
 					<pre class="small"><code data-trim>
@@ -269,27 +250,6 @@ Option&lt;alloc::collections::btree::map::BTreeMap&lt;u32, u32&gt;&gt;
 					</ul>
 				</section>
 				<section>
-					<h2>Open: the abstract's list</h2>
-					<br>
-					<ul>
-						<li>Slices / "fat pointers" with type and size</li>
-						<li>Generics (monomorphization explosion)</li>
-						<li>Interfaces (trait objects, vtables)</li>
-						<li>Lifetime tags</li>
-						<li>See: <a href="https://fedorapeople.org/~acme/prez/lpc-2026-btf-languages/btf-for-rust-proposal.md">btf-for-rust-proposal.md</a></li>
-					</ul>
-				</section>
-				<section>
-					<h2>Compilers emit BTF too</h2>
-					<br>
-					<ul>
-            <li><a href="https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html">GCC -gbtf</a> (12+, default on BPF) + <a href="https://gcc.gnu.org/onlinedocs/gcc/eBPF-Options.html">-mco-re</a></li>
-						<li>LLVM -gbtf + lld --btf-merge: pahole step optional, someday</li>
-						<li><a href="https://rust-gcc.github.io/">gccrs</a>: still out of tree</li>
-						<li><a href="https://lwn.net/Articles/722293/">RANDSTRUCT</a>: without the seed, layouts lie to every tool</li>
-					</ul>
-				</section>
-								<section>
 					<h2>Rust and the verifier</h2>
 					<br>
 					<pre class="small"><code class="language-plaintext" data-trim>
@@ -313,18 +273,6 @@ fn clear(bytes: &amp;mut [u8]);
 						<li>New kind? DECL_TAG-like annotations on union members?</li>
 						<li>Verifier tracking the active variant: match at load time</li>
 					</ul>
-				</section>
-				<section>
-					<h2>Open questions</h2>
-					<br>
-					<ul>
-						<li>VARIANT_PART: implicit fields or explicit vlen=N?</li>
-						<li>Discriminant: mandatory? Counted in the size?</li>
-						<li>Vtables: is method order consistent enough?</li>
-						<li>Rollout: emit old and new? Ignore unknown kinds?</li>
-						<li>128-bit discriminants: straight to btf_enum128?</li>
-					</ul>
-					<aside class="notes">Merged from three slides. VARIANT_PART design: implicit fields (data_ptr, length at fixed offsets) vs explicit (vlen=N); discriminant type mandatory or optional for C-style enums; include the discriminant in the total size. Vtables and compatibility: is compiler consistency of vtable method order sufficient; emit both old and new during transition; is consumers ignoring unknown kinds sufficient for rollout. 128-bit discriminants: ENUM64 today; go straight to 128-bit or incrementally; is btf_enum128 as 4 x 32-bit words sufficient.</aside>
 				</section>
 				<section>
 					<h2>Function tracing in Rust modules</h2>
@@ -423,6 +371,59 @@ struct leaf_0x2_table_bindgen {
 					</ul>
 						<div style="text-align: center"><a href="https://fedorapeople.org/~acme/prez/lpc-2026-btf-languages/" style="display: block; width: 220px; height: 220px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" shape-rendering="crispEdges" width="100%" height="100%"><rect width="37" height="37" fill="#fff"/><path fill="#000" d="M2 2h7v1h-7zM11 2h1v1h-1zM13 2h2v1h-2zM18 2h1v1h-1zM20 2h3v1h-3zM25 2h1v1h-1zM28 2h7v1h-7zM2 3h1v1h-1zM8 3h1v1h-1zM12 3h2v1h-2zM17 3h3v1h-3zM23 3h2v1h-2zM26 3h1v1h-1zM28 3h1v1h-1zM34 3h1v1h-1zM2 4h1v1h-1zM4 4h3v1h-3zM8 4h1v1h-1zM10 4h1v1h-1zM13 4h2v1h-2zM16 4h3v1h-3zM21 4h6v1h-6zM28 4h1v1h-1zM30 4h3v1h-3zM34 4h1v1h-1zM2 5h1v1h-1zM4 5h3v1h-3zM8 5h1v1h-1zM10 5h1v1h-1zM14 5h1v1h-1zM19 5h1v1h-1zM21 5h1v1h-1zM24 5h1v1h-1zM26 5h1v1h-1zM28 5h1v1h-1zM30 5h3v1h-3zM34 5h1v1h-1zM2 6h1v1h-1zM4 6h3v1h-3zM8 6h1v1h-1zM10 6h2v1h-2zM16 6h4v1h-4zM21 6h3v1h-3zM25 6h2v1h-2zM28 6h1v1h-1zM30 6h3v1h-3zM34 6h1v1h-1zM2 7h1v1h-1zM8 7h1v1h-1zM10 7h2v1h-2zM16 7h1v1h-1zM19 7h1v1h-1zM23 7h1v1h-1zM26 7h1v1h-1zM28 7h1v1h-1zM34 7h1v1h-1zM2 8h7v1h-7zM10 8h1v1h-1zM12 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM18 8h1v1h-1zM20 8h1v1h-1zM22 8h1v1h-1zM24 8h1v1h-1zM26 8h1v1h-1zM28 8h7v1h-7zM10 9h3v1h-3zM16 9h1v1h-1zM18 9h1v1h-1zM21 9h5v1h-5zM2 10h1v1h-1zM4 10h5v1h-5zM15 10h1v1h-1zM19 10h1v1h-1zM21 10h1v1h-1zM24 10h1v1h-1zM28 10h5v1h-5zM5 11h1v1h-1zM12 11h2v1h-2zM15 11h1v1h-1zM18 11h1v1h-1zM21 11h1v1h-1zM23 11h3v1h-3zM28 11h2v1h-2zM31 11h2v1h-2zM34 11h1v1h-1zM2 12h1v1h-1zM6 12h1v1h-1zM8 12h2v1h-2zM15 12h4v1h-4zM22 12h1v1h-1zM30 12h1v1h-1zM32 12h2v1h-2zM3 13h2v1h-2zM9 13h5v1h-5zM15 13h1v1h-1zM22 13h2v1h-2zM25 13h1v1h-1zM27 13h2v1h-2zM30 13h3v1h-3zM34 13h1v1h-1zM3 14h1v1h-1zM7 14h2v1h-2zM10 14h1v1h-1zM12 14h1v1h-1zM14 14h1v1h-1zM16 14h2v1h-2zM19 14h1v1h-1zM24 14h2v1h-2zM29 14h3v1h-3zM2 15h1v1h-1zM4 15h2v1h-2zM7 15h1v1h-1zM9 15h1v1h-1zM11 15h1v1h-1zM13 15h3v1h-3zM17 15h1v1h-1zM20 15h7v1h-7zM28 15h1v1h-1zM31 15h4v1h-4zM3 16h3v1h-3zM7 16h4v1h-4zM13 16h8v1h-8zM22 16h2v1h-2zM26 16h4v1h-4zM31 16h3v1h-3zM2 17h1v1h-1zM6 17h1v1h-1zM12 17h4v1h-4zM18 17h1v1h-1zM20 17h1v1h-1zM23 17h1v1h-1zM25 17h5v1h-5zM31 17h2v1h-2zM2 18h5v1h-5zM8 18h5v1h-5zM14 18h3v1h-3zM19 18h1v1h-1zM24 18h1v1h-1zM26 18h2v1h-2zM29 18h3v1h-3zM34 18h1v1h-1zM2 19h1v1h-1zM4 19h2v1h-2zM7 19h1v1h-1zM11 19h1v1h-1zM13 19h4v1h-4zM18 19h1v1h-1zM20 19h4v1h-4zM25 19h1v1h-1zM28 19h2v1h-2zM31 19h4v1h-4zM2 20h1v1h-1zM4 20h3v1h-3zM8 20h1v1h-1zM11 20h2v1h-2zM15 20h1v1h-1zM17 20h2v1h-2zM20 20h1v1h-1zM23 20h2v1h-2zM26 20h5v1h-5zM32 20h2v1h-2zM5 21h2v1h-2zM11 21h1v1h-1zM17 21h1v1h-1zM22 21h2v1h-2zM27 21h1v1h-1zM29 21h4v1h-4zM2 22h3v1h-3zM8 22h8v1h-8zM17 22h1v1h-1zM19 22h1v1h-1zM21 22h1v1h-1zM24 22h1v1h-1zM30 22h2v1h-2zM2 23h2v1h-2zM5 23h2v1h-2zM9 23h1v1h-1zM12 23h1v1h-1zM14 23h1v1h-1zM20 23h4v1h-4zM25 23h4v1h-4zM34 23h1v1h-1zM2 24h1v1h-1zM8 24h3v1h-3zM14 24h2v1h-2zM17 24h3v1h-3zM23 24h2v1h-2zM26 24h2v1h-2zM29 24h1v1h-1zM33 24h1v1h-1zM2 25h1v1h-1zM4 25h1v1h-1zM6 25h2v1h-2zM12 25h1v1h-1zM15 25h2v1h-2zM22 25h3v1h-3zM26 25h1v1h-1zM28 25h1v1h-1zM30 25h1v1h-1zM32 25h3v1h-3zM2 26h4v1h-4zM7 26h2v1h-2zM10 26h2v1h-2zM14 26h2v1h-2zM17 26h1v1h-1zM19 26h3v1h-3zM24 26h1v1h-1zM26 26h5v1h-5zM34 26h1v1h-1zM10 27h2v1h-2zM14 27h2v1h-2zM18 27h1v1h-1zM20 27h4v1h-4zM26 27h1v1h-1zM30 27h1v1h-1zM32 27h3v1h-3zM2 28h7v1h-7zM12 28h1v1h-1zM14 28h1v1h-1zM17 28h1v1h-1zM19 28h1v1h-1zM24 28h3v1h-3zM28 28h1v1h-1zM30 28h1v1h-1zM32 28h2v1h-2zM2 29h1v1h-1zM8 29h1v1h-1zM10 29h1v1h-1zM12 29h1v1h-1zM15 29h1v1h-1zM18 29h1v1h-1zM23 29h1v1h-1zM25 29h2v1h-2zM30 29h5v1h-5zM2 30h1v1h-1zM4 30h3v1h-3zM8 30h1v1h-1zM10 30h1v1h-1zM13 30h1v1h-1zM18 30h2v1h-2zM26 30h6v1h-6zM33 30h2v1h-2zM2 31h1v1h-1zM4 31h3v1h-3zM8 31h1v1h-1zM10 31h4v1h-4zM16 31h1v1h-1zM18 31h5v1h-5zM25 31h3v1h-3zM30 31h2v1h-2zM33 31h2v1h-2zM2 32h1v1h-1zM4 32h3v1h-3zM8 32h1v1h-1zM10 32h1v1h-1zM17 32h3v1h-3zM22 32h1v1h-1zM24 32h3v1h-3zM28 32h2v1h-2zM31 32h1v1h-1zM2 33h1v1h-1zM8 33h1v1h-1zM12 33h3v1h-3zM16 33h3v1h-3zM22 33h4v1h-4zM30 33h3v1h-3zM2 34h7v1h-7zM10 34h4v1h-4zM16 34h4v1h-4zM21 34h2v1h-2zM24 34h1v1h-1zM26 34h1v1h-1zM28 34h2v1h-2zM33 34h1v1h-1z"/></svg></a><p style="font-size: 0.35em; margin: 0.3em 0 0">fedorapeople.org/~acme/prez/<br>lpc-2026-btf-languages/</p></div>
 					</div>
+				</section>
+				<section>
+					<h2>Open: the abstract's list</h2>
+					<br>
+					<ul>
+						<li>Slices / "fat pointers" with type and size</li>
+						<li>Generics (monomorphization explosion)</li>
+						<li>Interfaces (trait objects, vtables)</li>
+						<li>Lifetime tags</li>
+						<li>See: <a href="https://fedorapeople.org/~acme/prez/lpc-2026-btf-languages/btf-for-rust-proposal.md">btf-for-rust-proposal.md</a></li>
+					</ul>
+				</section>
+				<section>
+					<h2>Open questions</h2>
+					<br>
+					<ul>
+						<li>VARIANT_PART: implicit fields or explicit vlen=N?</li>
+						<li>Discriminant: mandatory? Counted in the size?</li>
+						<li>Vtables: is method order consistent enough?</li>
+						<li>Rollout: emit old and new? Ignore unknown kinds?</li>
+						<li>128-bit discriminants: straight to btf_enum128?</li>
+					</ul>
+					<aside class="notes">Merged from three slides. VARIANT_PART design: implicit fields (data_ptr, length at fixed offsets) vs explicit (vlen=N); discriminant type mandatory or optional for C-style enums; include the discriminant in the total size. Vtables and compatibility: is compiler consistency of vtable method order sufficient; emit both old and new during transition; is consumers ignoring unknown kinds sufficient for rollout. 128-bit discriminants: ENUM64 today; go straight to 128-bit or incrementally; is btf_enum128 as 4 x 32-bit words sufficient.</aside>
+				</section>
+				<section>
+					<h2>Explicit vs niche</h2>
+					<br>
+					<ul>
+						<li><tt>Option&lt;u32&gt;</tt>: tag at 0, payload at 4 &rarr; emit it</li>
+						<li><tt>Option&lt;<a href="https://doc.rust-lang.org/std/num/struct.NonZero.html">NonZero</a>&lt;u32&gt;&gt;</tt>: tag IS the payload &rarr; emit nothing</li>
+						<li>Rule: emit only when it doesn't overlap the payload</li>
+						<li>Niche is the common kernel case (Result<(), Error>)</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Unions sit at zero</h2>
+					<br>
+					<ul>
+						<li>Non-zero discriminants can't live in the UNION</li>
+						<li><a href="https://github.com/libbpf/libbpf">libbpf</a> refuses, kernel <a href="https://docs.kernel.org/bpf/verifier.html">verifier</a> rejects at load</li>
+						<li>Real storage &rarr; outer STRUCT (overlap legal)</li>
+						<li>Payload itself &rarr; dropped</li>
+						<li>LLVM emits what the verifier rejects: upstream bug</li>
+					</ul>
+				</section>
+				<section>
+					<h2>Compilers emit BTF too</h2>
+					<br>
+					<ul>
+            <li><a href="https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html">GCC -gbtf</a> (12+, default on BPF) + <a href="https://gcc.gnu.org/onlinedocs/gcc/eBPF-Options.html">-mco-re</a></li>
+						<li>LLVM -gbtf + lld --btf-merge: pahole step optional, someday</li>
+						<li><a href="https://rust-gcc.github.io/">gccrs</a>: still out of tree</li>
+					</ul>
 				</section>
 			</div>
 		</div>
