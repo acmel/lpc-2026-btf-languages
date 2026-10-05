@@ -362,6 +362,59 @@ fn clear(bytes: &amp;mut [u8]);
 					</ul>
 				</section>
 				<section>
+					<h2>Experimenting with module BTF generation in rust</h2>
+					<br>
+					<ul>
+						<li>remove lang-exclude for Rust CUs</li>
+						<li>make LLVM=1 </li>
+						<li>With latest pahole v1.32, it works!</li>
+						<li>We see many duplicate types in vmlinux BTF due to bindgen differences (bpf_link, sock)</li>
+					</ul>
+				</section>
+				<section>
+					<h2>C type</h2>
+					<br/>
+<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">
+struct leaf_0x2_table {
+      union {
+          enum _cache_table_type c_type;
+          enum _tlb_table_type   t_type;
+      };                              /* offset 0, size 1 */
+      /* 1 byte of padding */
+      union {
+          short c_size;
+          short entries;
+      };                              /* offset 2, size 2 */
+  };
+</code></pre>
+				</section>
+				<section>
+					<h2>Rust type</h2>
+					<br/>
+<pre><code class="language-plaintext" data-trim data-noescape style="white-space: pre-wrap; word-break: break-all;">
+struct leaf_0x2_table_bindgen {
+      union {
+          uint8_t c_type;
+          uint8_t t_type;
+      } __bindgen_anon_1;             /* offset 0, size 1 */
+      /* 1 byte of padding */
+      union {
+          int16_t c_size;
+          int16_t entries;
+      } __bindgen_anon_2;             /* offset 2, size 2 */
+  };
+</code></pre>
+				</section>
+				<section>
+					<h2>And on reboot?</h2>
+					<br>
+					<ul>
+						<li>vmlinux BTF load fails due to long names</li>
+						<li>If we increase name limit to 2048 bytes, all works!</li>
+						<li>Can load rust samples with BTF</li>
+					</ul>
+				</section>
+				<section>
 					<h2>THE END</h2>
 					<div style="display: flex; align-items: center; gap: 1em">
 					<ul style="flex: 1">
